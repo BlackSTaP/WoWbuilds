@@ -1,0 +1,298 @@
+{
+  "source": "https://wowforevertalents.com/",
+  "client": "1.60.1.70862",
+  "sourceDate": "2026-11-07",
+  "counts": {
+    "warrior": 53,
+    "paladin": 51,
+    "hunter": 51,
+    "rogue": 54,
+    "priest": 52,
+    "shaman": 50,
+    "mage": 53,
+    "warlock": 52,
+    "druid": 52
+  },
+  "builds": [
+    {
+      "id": "fury-warrior-leveling",
+      "mismatches": [
+        {
+          "name": "Raging Blows",
+          "type": "missing",
+          "selected": false
+        }
+      ],
+      "orderErrors": []
+    },
+    {
+      "id": "arms-warrior-pve",
+      "mismatches": [
+        {
+          "name": "Raging Blows",
+          "type": "missing",
+          "selected": false
+        }
+      ],
+      "orderErrors": []
+    },
+    {
+      "id": "fury-warrior-pve",
+      "mismatches": [
+        {
+          "name": "Raging Blows",
+          "type": "missing",
+          "selected": false
+        }
+      ],
+      "orderErrors": []
+    },
+    {
+      "id": "protection-warrior-pve",
+      "mismatches": [
+        {
+          "name": "Raging Blows",
+          "type": "missing",
+          "selected": false
+        }
+      ],
+      "orderErrors": []
+    },
+    {
+      "id": "arms-warrior-pvp",
+      "mismatches": [
+        {
+          "name": "Raging Blows",
+          "type": "missing",
+          "selected": false
+        }
+      ],
+      "orderErrors": []
+    },
+    {
+      "id": "retribution-paladin-leveling",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "holy-paladin-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "protection-paladin-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "retribution-paladin-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "holy-paladin-pvp",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "beast-mastery-hunter-leveling",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "marksmanship-hunter-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "beast-mastery-hunter-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "survival-hunter-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "marksmanship-hunter-pvp",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "combat-rogue-leveling",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "combat-rogue-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "assassination-rogue-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "subtlety-rogue-pvp",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "combat-rogue-pvp",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "shadow-priest-leveling",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "discipline-priest-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "holy-priest-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "shadow-priest-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "discipline-priest-pvp",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "enhancement-shaman-leveling",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "elemental-shaman-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "enhancement-shaman-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "restoration-shaman-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "elemental-shaman-pvp",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "frost-mage-leveling",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "frost-mage-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "fire-mage-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "arcane-mage-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "frost-mage-pvp",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "affliction-warlock-leveling",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "affliction-warlock-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "destruction-warlock-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "demonology-warlock-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "affliction-warlock-pvp",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "feral-druid-leveling",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "feral-druid-tank-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "feral-druid-cat-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "restoration-druid-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "balance-druid-pve",
+      "mismatches": [],
+      "orderErrors": []
+    },
+    {
+      "id": "feral-druid-pvp",
+      "mismatches": [],
+      "orderErrors": []
+    }
+  ],
+  "latestNodesMissingFromDisplay": {
+    "warrior": [],
+    "paladin": [],
+    "hunter": [
+      {
+        "tree": "Marksmanship",
+        "name": "Improved Serpent Sting",
+        "max": 5,
+        "row": 3
+      }
+    ],
+    "rogue": [],
+    "priest": [],
+    "shaman": [],
+    "mage": [],
+    "warlock": [],
+    "druid": []
+  },
+  "mismatchBuilds": 5,
+  "orderErrorBuilds": 0
+}
