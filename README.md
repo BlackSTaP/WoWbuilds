@@ -12,6 +12,13 @@ Static WoW Forever build library with a bilingual, interactive talent calculator
 - RU/EN controls in the page header and build dialog switch the full UI and primary tooltip language. Both English and Russian remain visible in every tooltip. The language and favorite presets persist locally. Unshared custom edits last for the current page session.
 - The calculator uses the standard level-10 first point. It does not track player levels or apply early-point Legacy perks.
 
+## Personal builds, links and guides
+
+- Save opens a portable link editor. The URL fragment contains the preset/class reference, version, full talent order and optional name (`n`). Copying or bookmarking this link is sufficient to open the same build on another device, without an account, local storage or an imported file. Older unnamed links still work.
+- My builds is an optional local list of these build links. Name, update, duplicate and delete entries; export/import a versioned JSON backup. Normal clicks reopen an entry; its actual hyperlink also supports opening in another tab. Up to 100 records and 1 MB per import. Import validates the entire file before writing, preserves existing builds, skips identical entries and assigns fresh IDs. Storage failures are reported; sharing a link remains available.
+- Hover/focus/tap highlights a talent's prerequisite chain and dependent talents. Missing ranks are dashed pink, prerequisites gold, dependents purple. Tooltips show the exact points missing from earlier rows and prerequisite ranks. Unlearned icons stay dark.
+- Guide is a separate tab for all 46 presets, in RU/EN. The short tactical text paraphrases each preset's linked WoW Forever Builder page, reviewed November 8, 2026. Equipment notes are general role heuristics, not calculated stat weights or verified caps. Key talents are derived from the current allocation. Edited builds show that the tactics describe the source preset.
+
 ## Data and attribution
 
 `talents.json` is the editable calculator dataset; `talents.js` is its generated, offline-compatible browser version. `talent-name-overrides.json` records terminology corrections. After changing data or names:
@@ -33,7 +40,7 @@ Images: Blizzard Entertainment, sourced from WoW Forever Builder and the Wowhead
 Node 20 or newer:
 
 ```sh
-node --test tests/calculator.test.cjs
+node --test tests/*.test.cjs
 node --check app.js
 ```
 

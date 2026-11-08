@@ -13,7 +13,7 @@ let language = stored('forever-atlas-language','ru');
 if (!['ru','en'].includes(language)) language = 'ru';
 const savedFavorites = stored('forever-atlas-favorites',[]);
 const favorites = new Set((Array.isArray(savedFavorites) ? savedFavorites : []).filter(id => DATA.builds.some(b => b.id === id)));
-const state = {classId:'all',mode:'all',role:'all',query:'',favorites:false};
+const state = {classId:'all',mode:'all',role:'all',query:'',favorites:false,mine:false};
 const edits = new Map(), catalogs = new Map();
 let current = null, order = [], tab = 'calculator', mobileTree = 0, returnFocus = null, tooltipId = null, pinnedTooltip = false, tooltipTimer;
 function t(key, values = {}) {
@@ -57,11 +57,12 @@ function renderClasses() {
 }
 function render() {
   renderClasses(); const list = filtered(); $('#favCount').textContent = favorites.size;
-  $('#browse').classList.toggle('active',!state.favorites); $('#favorites').classList.toggle('active',state.favorites);
+  $('#browse').classList.toggle('active',!state.favorites && !state.mine); $('#myBuilds').classList.toggle('active',!!state.mine); $('#favorites').classList.toggle('active',state.favorites);
   $('#catalogTitle').innerHTML = `${state.favorites ? t('favorites') : state.classId === 'all' ? t('allClasses') : className(state.classId)} <span id="resultCount">${list.length}</span>`;
   $('#catalogOverline').textContent = t('library'); $('#resultLabel').textContent = `${t('ready')}: ${list.length} · 51 ${t('points')}`;
   $('#reset').hidden = state.classId === 'all' && state.mode === 'all' && state.role === 'all' && !state.query;
   $$('[data-mode]').forEach(el => { el.classList.toggle('active',state.mode === el.dataset.mode); el.setAttribute('aria-pressed',String(state.mode === el.dataset.mode)); }); $('#role').value = state.role;
+  if (state.mine) { renderPersonalCatalog(); return; }
   $('#builds').innerHTML = list.length ? list.map((b,i) => {
     const desc = b.mode === 'Leveling' ? 'levelingDesc' : b.mode === 'PvP' ? 'pvpDesc' : b.role === 'Tank' ? 'tankDesc' : b.role === 'Healer' ? 'healDesc' : 'damageDesc';
     const label = `${className(b.classId)}, ${specName(b)}, ${t(b.mode)}`;
@@ -71,7 +72,7 @@ function render() {
   if ($('#emptyReset')) $('#emptyReset').onclick = () => { state.favorites = false; resetFilters(); };
 }
 function resetFilters() { Object.assign(state,{classId:'all',mode:'all',role:'all',query:''}); $('#search').value = ''; render(); }
-function shareURL() { const params = new URLSearchParams({build:current.id,v:'1',o:E.encode(nodesFor(current.classId),order)}); return `${location.pathname}${location.search}#${params}`; }
+function shareURL() { return buildLink(current,order,currentSaved()?.name || shareName); }
 function writeHash() { history.replaceState(null,'',shareURL()); }
 function errorMessage(result) {
   const node = current && nodesFor(current.classId).find(n => n.id === result.talent);
@@ -83,10 +84,10 @@ function edit(action,id) {
   if (!result.ok) { notify(errorMessage(result)); return; }
   order = result.order; edits.set(current.id,[...order]); writeHash(); updateCalculator(); if (tooltipId) updateTooltip();
 }
-function openBuild(id,encoded = null,fromHash = false) {
+function openBuild(id,encoded = null,fromHash = false,savedId = null,linkName = '') {
   const b = DATA.builds.find(b => b.id === id); if (!b) { notify(t('unknownBuild')); return; }
   if (!$('#buildDialog').open) returnFocus = document.activeElement;
-  current = b; const nodes = nodesFor(b.classId), preset = E.fromBuild(nodes,b);
+  activeSavedId = savedId; shareName = typeof linkName === 'string' ? linkName.trim().slice(0,60) : ''; current = b; const nodes = nodesFor(b.classId), preset = E.fromBuild(nodes,b);
   order = edits.has(id) ? [...edits.get(id)] : preset.ok ? preset.order : []; if (!preset.ok) notify(t('invalidPreset'));
   if (encoded !== null) { const decoded = E.decode(nodes,encoded); if (decoded.ok) order = decoded.order; else { order = preset.ok ? preset.order : []; notify(t('invalidLink')); } }
   tab = 'calculator'; const totals = E.totals(nodes,E.ranks(order)); mobileTree = totals.indexOf(Math.max(...totals));
@@ -96,16 +97,16 @@ function openBuild(id,encoded = null,fromHash = false) {
 function renderDetail() {
   const b = current;
   $('#buildDialog').classList.toggle('calculator-mode',tab === 'calculator');
-  $('#detail').innerHTML = `<div class="detail-header"><div class="detail-topline"><button class="back-button" id="back">← ${t('back')}</button><div class="detail-languages language-switch"><button data-language="ru" aria-label="Русский" lang="ru">RU</button><button data-language="en" aria-label="English" lang="en">EN</button></div><button class="close" id="closeDetail" aria-label="${t('close')}">×</button></div><div class="detail-title-line"><img src="${classIcon(b.classId)}" alt=""><div><div class="eyebrow" style="color:${CLASSES[b.classId][2]}">${className(b.classId).toUpperCase()} · ${t(b.mode)} · ${t(b.role)}</div><h2 id="detailTitle">${specName(b)}</h2></div><div class="detail-actions"><button class="button secondary" id="detailFavorite" aria-pressed="${favorites.has(b.id)}">${favorites.has(b.id) ? '★ '+t('saved') : '☆ '+t('addFavorite')}</button><button class="button" id="share">${t('share')} ↗</button></div></div><div class="detail-tabs" role="tablist"><button role="tab" id="tab-calculator" data-tab="calculator" aria-selected="${tab === 'calculator'}" aria-controls="detailBody" class="${tab === 'calculator' ? 'active' : ''}">${t('calculator')}</button><button role="tab" id="tab-plan" data-tab="plan" aria-selected="${tab === 'plan'}" aria-controls="detailBody" class="${tab === 'plan' ? 'active' : ''}">${t('progression')}</button></div></div><div class="detail-content" id="detailBody" role="tabpanel" aria-labelledby="tab-${tab}">${tab === 'calculator' ? calculatorHTML() : planHTML()}</div>`;
-  $('#back').onclick = $('#closeDetail').onclick = () => $('#buildDialog').close(); $('#detailFavorite').onclick = () => saveFavorite(b.id); $('#share').onclick = share;
+  $('#detail').innerHTML = `<div class="detail-header"><div class="detail-topline"><button class="back-button" id="back">← ${t('back')}</button><div class="detail-languages language-switch"><button data-language="ru" aria-label="Русский" lang="ru">RU</button><button data-language="en" aria-label="English" lang="en">EN</button></div><button class="close" id="closeDetail" aria-label="${t('close')}">×</button></div><div class="detail-title-line"><img src="${classIcon(b.classId)}" alt=""><div><div class="eyebrow" style="color:${CLASSES[b.classId][2]}">${className(b.classId).toUpperCase()} · ${t(b.mode)} · ${t(b.role)}</div><h2 id="detailTitle">${esc(currentSaved()?.name || shareName || specName(b))}</h2></div><div class="detail-actions"><button class="button secondary" id="detailFavorite" aria-pressed="${favorites.has(b.id)}">${favorites.has(b.id) ? '★ '+t('saved') : '☆ '+t('addFavorite')}</button><button class="button secondary" id="savePersonal">${t('saveShort')}</button><button class="button" id="share">${t('share')} ↗</button></div></div><div class="detail-tabs" role="tablist">${[['calculator','calculator'],['plan','progression'],['guide','guide']].map(([id,label]) => `<button role="tab" id="tab-${id}" data-tab="${id}" tabindex="${tab === id ? 0 : -1}" aria-selected="${tab === id}" aria-controls="detailBody" class="${tab === id ? 'active' : ''}">${t(label)}</button>`).join('')}</div></div><div class="detail-content" id="detailBody" role="tabpanel" aria-labelledby="tab-${tab}">${tab === 'calculator' ? calculatorHTML() : tab === 'plan' ? planHTML() : guideHTML()}</div>`;
+  $('#back').onclick = $('#closeDetail').onclick = () => $('#buildDialog').close(); $('#detailFavorite').onclick = () => saveFavorite(b.id); $('#share').onclick = share; $('#savePersonal').onclick = () => showSaveBuild();
   $$('[data-tab]').forEach(el => {
     const change = next => { hideTooltip(); tab = next; renderDetail(); $(`[data-tab="${tab}"]`).focus(); };
     el.onclick = () => change(el.dataset.tab);
-    el.onkeydown = event => { if (['ArrowLeft','ArrowRight'].includes(event.key)) { event.preventDefault(); change(tab === 'plan' ? 'calculator' : 'plan'); } };
+    el.onkeydown = event => { if (['ArrowLeft','ArrowRight'].includes(event.key)) { event.preventDefault(); const tabs = ['calculator','plan','guide']; change(tabs[(tabs.indexOf(tab)+(event.key === 'ArrowRight' ? 1 : 2))%3]); } };
   });
   applyLanguage();
   if (tab === 'calculator') bindCalculator();
-  else $('#expandAll').onclick = () => { const all = $$('.level-group').every(el => el.open); $$('.level-group').forEach(el => { el.open = !all; }); $('#expandAll').textContent = t(all ? 'expand' : 'collapse'); };
+  else if (tab === 'plan') $('#expandAll').onclick = () => { const all = $$('.level-group').every(el => el.open); $$('.level-group').forEach(el => { el.open = !all; }); $('#expandAll').textContent = t(all ? 'expand' : 'collapse'); };
 }
 function sourceNote() { return `<div class="source-note"><a href="${esc(current.source)}" target="_blank" rel="noopener">${t('sourceBuild')} ↗</a> · <a href="https://talentsforever.com/" target="_blank" rel="noopener">${t('rulesNote')}</a></div>`; }
 function calculatorHTML() {
@@ -143,7 +144,7 @@ function bindCalculator() {
     el.onkeydown = event => { if (['-','Delete','Backspace'].includes(event.key)) { event.preventDefault(); edit('remove',el.dataset.node); } };
   }); updateCalculator();
 }
-function hideTooltip() { clearTimeout(tooltipTimer); tooltipId = null; pinnedTooltip = false; $('#talentTooltip').hidden = true; }
+function hideTooltip() { clearDependencies(); clearTimeout(tooltipTimer); tooltipId = null; pinnedTooltip = false; $('#talentTooltip').hidden = true; }
 function scheduleHideTooltip() { if (!pinnedTooltip) tooltipTimer = setTimeout(() => { if (!$('#talentTooltip').matches(':hover') && !$('#talentTooltip').contains(document.activeElement)) hideTooltip(); },160); }
 function showTooltip(id,pinned) { clearTimeout(tooltipTimer); tooltipId = id; pinnedTooltip = pinned; updateTooltip(); }
 function updateTooltip() {
@@ -151,7 +152,8 @@ function updateTooltip() {
   const nodes = nodesFor(current.classId), n = nodes.find(n => n.id === tooltipId), allocation = E.ranks(order), rank = allocation[n.id] || 0, other = language === 'ru' ? 'en' : 'ru';
   const rankHTML = (r,label) => `<section class="tooltip-rank"><h4>${label} ${r}/${n.max}</h4><p lang="${language}">${esc(n.descriptions[language][r-1])}</p><p class="tooltip-original" lang="${other}"><b>${other.toUpperCase()}</b> ${esc(n.descriptions[other][r-1])}</p>${!n.confirmed.includes(r) ? `<small class="tooltip-warning">${t('estimated')}</small>` : ''}</section>`;
   const parent = nodes.find(p => p.id === n.requires), can = E.canAdd(nodes,allocation,n.id), canRemove = E.remove(nodes,order,n.id).ok, panel = $('#talentTooltip');
-  panel.innerHTML = `<button class="tooltip-close" id="closeTooltip" aria-label="${t('close')}">×</button><div class="tooltip-title"><img src="${n.icon}" alt=""><div><h3 lang="${language}">${esc(talentName(n))}</h3><span lang="${other}">${esc(language === 'ru' ? n.name : n.nameRu)}</span></div></div><div class="tooltip-meta">${treeName(n.treeName)} · ${t('rank')} ${rank}/${n.max}</div>${n.cost[language] ? `<p class="tooltip-cost">${esc(n.cost[language])}</p>` : ''}${rank ? rankHTML(rank,t('currentRank')) : ''}${rank < n.max ? rankHTML(rank+1,t('nextRank')) : ''}<div class="tooltip-requirements">${n.row ? `<div>${t('requiresPoints')}: ${n.row*5}</div>` : ''}${parent ? `<div>${t('requiresTalent')}: ${esc(talentName(parent))} (${parent.max}/${parent.max})</div>` : ''}</div><div class="tooltip-controls"><button id="removeTalent" aria-label="${t('remove')}" ${!canRemove ? 'disabled' : ''}>−</button><strong>${rank} / ${n.max}</strong><button id="addTalent" aria-label="${t('add')}" ${!can.ok ? 'disabled' : ''}>+</button></div><small class="translation-note">${t('translation')}</small>`;
+  panel.innerHTML = `<button class="tooltip-close" id="closeTooltip" aria-label="${t('close')}">×</button><div class="tooltip-title"><img src="${n.icon}" alt=""><div><h3 lang="${language}">${esc(talentName(n))}</h3><span lang="${other}">${esc(language === 'ru' ? n.name : n.nameRu)}</span></div></div><div class="tooltip-meta">${treeName(n.treeName)} · ${t('rank')} ${rank}/${n.max}</div>${n.cost[language] ? `<p class="tooltip-cost">${esc(n.cost[language])}</p>` : ''}${rank ? rankHTML(rank,t('currentRank')) : ''}${rank < n.max ? rankHTML(rank+1,t('nextRank')) : ''}<div class="tooltip-requirements">${n.row ? `<div>${t('requiresPoints')}: ${n.row*5}</div>` : ''}${parent ? `<div>${t('requiresTalent')}: ${esc(talentName(parent))} (${parent.max}/${parent.max})</div>` : ''}</div>${dependencyHTML(n.id)}<div class="tooltip-controls"><button id="removeTalent" aria-label="${t('remove')}" ${!canRemove ? 'disabled' : ''}>−</button><strong>${rank} / ${n.max}</strong><button id="addTalent" aria-label="${t('add')}" ${!can.ok ? 'disabled' : ''}>+</button></div><small class="translation-note">${t('translation')}</small>`;
+  highlightDependencies(n.id);
   panel.hidden = false; panel.onpointerenter = () => clearTimeout(tooltipTimer); panel.onpointerleave = scheduleHideTooltip;
   $('#closeTooltip').onclick = () => { const anchor = $(`[data-node="${tooltipId}"]`); hideTooltip(); anchor?.focus({preventScroll:true}); hideTooltip(); };
   $('#addTalent').onclick = () => { pinnedTooltip = true; edit('add',n.id); $('#addTalent')?.focus({preventScroll:true}); };
@@ -184,7 +186,7 @@ function renderSources() {
 }
 function readHash() {
   const params = new URLSearchParams(location.hash.slice(1));
-  if (params.has('build')) { if (params.has('v') && params.get('v') !== '1') { notify(t('invalidLink')); openBuild(params.get('build'),null,true); return; } openBuild(params.get('build'),params.has('o') ? params.get('o') : null,true); }
+  if (params.has('build')) { if (params.has('v') && params.get('v') !== '1') { notify(t('invalidLink')); openBuild(params.get('build'),null,true); return; } openBuild(params.get('build'),params.has('o') ? params.get('o') : null,true,null,params.get('n')); }
   else if ($('#buildDialog').open) $('#buildDialog').close();
 }
 $('#buildDialog').addEventListener('close',() => { hideTooltip(); if (current) edits.set(current.id,[...order]); current = null; if (new URLSearchParams(location.hash.slice(1)).has('build')) history.replaceState(null,'',location.pathname+location.search); if (returnFocus?.isConnected) returnFocus.focus(); });
@@ -192,8 +194,8 @@ $('#buildDialog').addEventListener('cancel',event => { if (tooltipId) { event.pr
 $('#buildDialog').addEventListener('scroll',() => { if (tooltipId && !pinnedTooltip) hideTooltip(); else positionTooltip(); }); window.addEventListener('resize',positionTooltip);
 [$('#buildDialog'),$('#sourceDialog')].forEach(dialog => dialog.addEventListener('click',event => { if (event.target === dialog) { const r = dialog.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dialog.close(); } }));
 ['sources','footerSources','dataInfo'].forEach(id => { $('#'+id).onclick = () => { renderSources(); $('#sourceDialog').showModal(); }; });
-$('#browse').onclick = () => { state.favorites = false; render(); }; $('#favorites').onclick = () => { state.favorites = true; render(); $('#catalog').scrollIntoView({behavior:'smooth'}); };
+$('#browse').onclick = () => { state.mine = false; state.favorites = false; render(); }; $('#favorites').onclick = () => { state.mine = false; state.favorites = true; render(); $('#catalog').scrollIntoView({behavior:'smooth'}); };
 $$('[data-mode]').forEach(el => { el.onclick = () => { state.mode = el.dataset.mode; render(); }; }); $('#role').onchange = event => { state.role = event.target.value; render(); }; $('#search').oninput = event => { state.query = event.target.value; render(); }; $('#reset').onclick = resetFilters;
-$('.brand').onclick = event => { event.preventDefault(); state.favorites = false; resetFilters(); window.scrollTo({top:0,behavior:'smooth'}); };
+$('.brand').onclick = event => { event.preventDefault(); state.mine = false; state.favorites = false; resetFilters(); window.scrollTo({top:0,behavior:'smooth'}); };
 document.addEventListener('keydown',event => { if (event.key === '/' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName) && !$('dialog[open]')) { event.preventDefault(); $('#search').focus(); } if (event.key === 'Escape' && tooltipId) { event.preventDefault(); event.stopPropagation(); hideTooltip(); } });
-window.addEventListener('hashchange',readHash); applyLanguage(); render(); readHash();
+window.addEventListener('hashchange',readHash); initBuildFeatures(); applyLanguage(); render(); readHash();
