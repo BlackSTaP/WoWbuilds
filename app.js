@@ -1,5 +1,7 @@
 'use strict';
 const DATA = window.ATLAS_DATA, TALENTS = window.ATLAS_TALENTS, E = window.TalentEngine;
+const ALL_BASES = BuildCatalog.create(DATA.builds,TALENTS.classes);
+const findBuild = id => ALL_BASES.find(b => b.id === id);
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const CLASSES = {
@@ -26,7 +28,7 @@ const treeName = name => language === 'ru' ? SPECS[name] || name : name;
 const talentName = node => language === 'ru' ? node.nameRu : node.name;
 const classIcon = id => `assets/class_${id}.jpg`;
 function nodesFor(id) { if (!catalogs.has(id)) catalogs.set(id,E.catalog(TALENTS.classes[id].trees)); return catalogs.get(id); }
-function specName(b) { return treeName(b.spec) + (b.id.includes('tank') && b.classId === 'druid' ? ` · ${t('bear')}` : b.id.includes('cat') ? ` · ${t('cat')}` : ''); }
+function specName(b) { if (b.custom) return t('customBuild'); return treeName(b.spec) + (b.id.includes('tank') && b.classId === 'druid' ? ` · ${t('bear')}` : b.id.includes('cat') ? ` · ${t('cat')}` : ''); }
 function persist(key,value) { try { localStorage.setItem(key,JSON.stringify(value)); } catch { notify(t('sessionOnly')); } }
 function notify(message) { $('#toast').textContent = message; $('#toast').classList.add('show'); clearTimeout(notify.timer); notify.timer = setTimeout(() => $('#toast').classList.remove('show'),3300); }
 function applyLanguage() {
@@ -52,10 +54,13 @@ function filtered() {
 }
 function renderClasses() {
   const item = (id,name,count,icon) => `<button class="class-button ${state.classId === id ? 'active' : ''}" data-class="${id}" aria-pressed="${state.classId === id}">${icon}${name}<small>${count}</small></button>`;
-  $('#classes').innerHTML = item('all',t('allClasses'),46,'<span class="all-icon">◈</span>') + Object.keys(CLASSES).map(id => item(id,className(id),DATA.builds.filter(b => b.classId === id).length,`<img src="${classIcon(id)}" alt="">`)).join('');
+  const count = id => state.mine ? personalRecords.filter(r => id === 'all' || findBuild(r.baseId)?.classId === id).length : DATA.builds.filter(b => id === 'all' || b.classId === id).length;
+  $('#classes').innerHTML = item('all',t('allClasses'),count('all'),'<span class="all-icon">◈</span>') + Object.keys(CLASSES).map(id => item(id,className(id),count(id),`<img src="${classIcon(id)}" alt="">`)).join('');
   $$('[data-class]').forEach(el => { el.onclick = () => { state.classId = el.dataset.class; render(); }; });
 }
 function render() {
+  document.body.classList.toggle('personal-view',!!state.mine);
+  if (state.mine) refreshPersonal();
   renderClasses(); const list = filtered(); $('#favCount').textContent = favorites.size;
   $('#browse').classList.toggle('active',!state.favorites && !state.mine); $('#myBuilds').classList.toggle('active',!!state.mine); $('#favorites').classList.toggle('active',state.favorites);
   $('#catalogTitle').innerHTML = `${state.favorites ? t('favorites') : state.classId === 'all' ? t('allClasses') : className(state.classId)} <span id="resultCount">${list.length}</span>`;
@@ -85,7 +90,7 @@ function edit(action,id) {
   order = result.order; edits.set(current.id,[...order]); writeHash(); updateCalculator(); if (tooltipId) updateTooltip();
 }
 function openBuild(id,encoded = null,fromHash = false,savedId = null,linkName = '') {
-  const b = DATA.builds.find(b => b.id === id); if (!b) { notify(t('unknownBuild')); return; }
+  const b = findBuild(id); if (!b) { notify(t('unknownBuild')); return; }
   if (!$('#buildDialog').open) returnFocus = document.activeElement;
   activeSavedId = savedId; shareName = typeof linkName === 'string' ? linkName.trim().slice(0,60) : ''; current = b; const nodes = nodesFor(b.classId), preset = E.fromBuild(nodes,b);
   order = edits.has(id) ? [...edits.get(id)] : preset.ok ? preset.order : []; if (!preset.ok) notify(t('invalidPreset'));
@@ -97,21 +102,21 @@ function openBuild(id,encoded = null,fromHash = false,savedId = null,linkName = 
 function renderDetail() {
   const b = current;
   $('#buildDialog').classList.toggle('calculator-mode',tab === 'calculator');
-  $('#detail').innerHTML = `<div class="detail-header"><div class="detail-topline"><button class="back-button" id="back">← ${t('back')}</button><div class="detail-languages language-switch"><button data-language="ru" aria-label="Русский" lang="ru">RU</button><button data-language="en" aria-label="English" lang="en">EN</button></div><button class="close" id="closeDetail" aria-label="${t('close')}">×</button></div><div class="detail-title-line"><img src="${classIcon(b.classId)}" alt=""><div><div class="eyebrow" style="color:${CLASSES[b.classId][2]}">${className(b.classId).toUpperCase()} · ${t(b.mode)} · ${t(b.role)}</div><h2 id="detailTitle">${esc(currentSaved()?.name || shareName || specName(b))}</h2></div><div class="detail-actions"><button class="button secondary" id="detailFavorite" aria-pressed="${favorites.has(b.id)}">${favorites.has(b.id) ? '★ '+t('saved') : '☆ '+t('addFavorite')}</button><button class="button secondary" id="savePersonal">${t('saveShort')}</button><button class="button" id="share">${t('share')} ↗</button></div></div><div class="detail-tabs" role="tablist">${[['calculator','calculator'],['plan','progression'],['guide','guide']].map(([id,label]) => `<button role="tab" id="tab-${id}" data-tab="${id}" tabindex="${tab === id ? 0 : -1}" aria-selected="${tab === id}" aria-controls="detailBody" class="${tab === id ? 'active' : ''}">${t(label)}</button>`).join('')}</div></div><div class="detail-content" id="detailBody" role="tabpanel" aria-labelledby="tab-${tab}">${tab === 'calculator' ? calculatorHTML() : tab === 'plan' ? planHTML() : guideHTML()}</div>`;
+  $('#detail').innerHTML = `<div class="detail-header"><div class="detail-topline"><button class="back-button" id="back">← ${t('back')}</button><div class="detail-languages language-switch"><button data-language="ru" aria-label="Русский" lang="ru">RU</button><button data-language="en" aria-label="English" lang="en">EN</button></div><button class="close" id="closeDetail" aria-label="${t('close')}">×</button></div><div class="detail-title-line"><img src="${classIcon(b.classId)}" alt=""><div><div class="eyebrow" style="color:${CLASSES[b.classId][2]}">${className(b.classId).toUpperCase()} · ${b.custom ? t('fromScratch') : `${t(b.mode)} · ${t(b.role)}`}</div><h2 id="detailTitle">${esc(currentSaved()?.name || shareName || specName(b))}</h2></div><div class="detail-actions"><button class="button secondary" id="detailFavorite" ${b.custom ? 'hidden' : ''} aria-pressed="${favorites.has(b.id)}">${favorites.has(b.id) ? '★ '+t('saved') : '☆ '+t('addFavorite')}</button><button class="button secondary" id="savePersonal">${t('saveShort')}</button><button class="button" id="share">${t('share')} ↗</button></div></div><div class="detail-tabs" role="tablist">${[['calculator','calculator'],['plan','progression'],...(!b.custom ? [['guide','guide']] : [])].map(([id,label]) => `<button role="tab" id="tab-${id}" data-tab="${id}" tabindex="${tab === id ? 0 : -1}" aria-selected="${tab === id}" aria-controls="detailBody" class="${tab === id ? 'active' : ''}">${t(label)}</button>`).join('')}</div></div><div class="detail-content" id="detailBody" role="tabpanel" aria-labelledby="tab-${tab}">${tab === 'calculator' ? calculatorHTML() : tab === 'plan' ? planHTML() : guideHTML()}</div>`;
   $('#back').onclick = $('#closeDetail').onclick = () => $('#buildDialog').close(); $('#detailFavorite').onclick = () => saveFavorite(b.id); $('#share').onclick = share; $('#savePersonal').onclick = () => showSaveBuild();
   $$('[data-tab]').forEach(el => {
     const change = next => { hideTooltip(); tab = next; renderDetail(); $(`[data-tab="${tab}"]`).focus(); };
     el.onclick = () => change(el.dataset.tab);
-    el.onkeydown = event => { if (['ArrowLeft','ArrowRight'].includes(event.key)) { event.preventDefault(); const tabs = ['calculator','plan','guide']; change(tabs[(tabs.indexOf(tab)+(event.key === 'ArrowRight' ? 1 : 2))%3]); } };
+    el.onkeydown = event => { if (['ArrowLeft','ArrowRight'].includes(event.key)) { event.preventDefault(); const tabs = $$('[data-tab]').map(el => el.dataset.tab); change(tabs[(tabs.indexOf(tab)+(event.key === 'ArrowRight' ? 1 : tabs.length-1))%tabs.length]); } };
   });
   applyLanguage();
   if (tab === 'calculator') bindCalculator();
   else if (tab === 'plan') $('#expandAll').onclick = () => { const all = $$('.level-group').every(el => el.open); $$('.level-group').forEach(el => { el.open = !all; }); $('#expandAll').textContent = t(all ? 'expand' : 'collapse'); };
 }
-function sourceNote() { return `<div class="source-note"><a href="${esc(current.source)}" target="_blank" rel="noopener">${t('sourceBuild')} ↗</a> · <a href="https://talentsforever.com/" target="_blank" rel="noopener">${t('rulesNote')}</a></div>`; }
+function sourceNote() { if (current.custom) return `<div class="source-note"><a href="https://talentsforever.com/" target="_blank" rel="noopener">${t('rulesNote')}</a></div>`; return `<div class="source-note"><a href="${esc(current.source)}" target="_blank" rel="noopener">${t('sourceBuild')} ↗</a> · <a href="https://talentsforever.com/" target="_blank" rel="noopener">${t('rulesNote')}</a></div>`; }
 function calculatorHTML() {
   const trees = TALENTS.classes[current.classId].trees;
-  return `<div class="calc-toolbar"><div><div class="eyebrow" id="buildStatus"></div><strong id="calcSplit"></strong><span id="spentPoints"></span></div><div class="points-remaining"><b id="pointsLeft"></b><span>${t('left')}</span></div><div class="calc-actions"><button class="button secondary" id="restoreBuild">↺ ${t('restore')}</button><button class="button secondary" id="resetAll">${t('resetAll')}</button></div></div><p class="calc-help">${t('calculatorHelp')}</p><div class="mobile-tree-tabs" role="group" aria-label="${t('selectedTree')}">${trees.map((tree,ti) => `<button data-tree-tab="${ti}" aria-pressed="${ti === mobileTree}">${treeName(tree.name)}</button>`).join('')}</div><div class="calculator-trees">${trees.map((tree,ti) => `<section class="calc-tree ${ti === mobileTree ? 'mobile-active' : ''}" data-tree="${ti}"><div class="calc-tree-head"><img src="${tree.icon}" alt=""><h3>${treeName(tree.name)}</h3><b data-tree-points="${ti}"></b><button data-reset-tree="${ti}" aria-label="${t('clearTree')}: ${treeName(tree.name)}" title="${t('clearTree')}">↺</button></div><div class="calc-board"><svg class="talent-links" viewBox="0 0 400 700" preserveAspectRatio="none" aria-hidden="true"><defs><marker id="arrow-${ti}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="currentColor"/></marker></defs>${tree.nodes.filter(n => n.requires).map(n => {
+  return `<div class="calc-toolbar"><div><div class="eyebrow" id="buildStatus"></div><strong id="calcSplit"></strong><span id="spentPoints"></span></div><div class="points-remaining"><b id="pointsLeft"></b><span>${t('left')}</span></div><div class="calc-actions"><button class="button secondary" id="restoreBuild" ${current.custom ? 'hidden' : ''}>↺ ${t('restore')}</button><button class="button secondary" id="resetAll">${t('resetAll')}</button></div></div><p class="calc-help">${t('calculatorHelp')}</p><div class="mobile-tree-tabs" role="group" aria-label="${t('selectedTree')}">${trees.map((tree,ti) => `<button data-tree-tab="${ti}" aria-pressed="${ti === mobileTree}">${treeName(tree.name)}</button>`).join('')}</div><div class="calculator-trees">${trees.map((tree,ti) => `<section class="calc-tree ${ti === mobileTree ? 'mobile-active' : ''}" data-tree="${ti}"><div class="calc-tree-head"><img src="${tree.icon}" alt=""><h3>${treeName(tree.name)}</h3><b data-tree-points="${ti}"></b><button data-reset-tree="${ti}" aria-label="${t('clearTree')}: ${treeName(tree.name)}" title="${t('clearTree')}">↺</button></div><div class="calc-board"><svg class="talent-links" viewBox="0 0 400 700" preserveAspectRatio="none" aria-hidden="true"><defs><marker id="arrow-${ti}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="currentColor"/></marker></defs>${tree.nodes.filter(n => n.requires).map(n => {
     const p = tree.nodes.find(p => p.id === n.requires), sx = p.col*100+50, sy = p.row*100+84, tx = n.col*100+50, ty = n.row*100+12;
     const direction = Math.sign(tx-sx);
     const path = p.row === n.row ? `M${sx+direction*36},${p.row*100+50} H${tx-direction*39}` : sx === tx ? `M${sx},${sy} V${ty}` : `M${sx},${sy} V${sy+8} H${tx} V${ty}`;
@@ -122,7 +127,7 @@ function updateCalculator() {
   if (tab !== 'calculator') return;
   const nodes = nodesFor(current.classId), allocation = E.ranks(order), totals = E.totals(nodes,allocation), preset = E.fromBuild(nodes,current).order || [];
   $('#calcSplit').textContent = totals.join(' / '); $('#pointsLeft').textContent = E.LIMIT-order.length; $('#spentPoints').textContent = `${order.length} / 51 ${t('points')}`;
-  $('#buildStatus').textContent = t(E.encode(nodes,preset) === E.encode(nodes,order) ? 'preset' : 'custom'); $('#resetAll').disabled = order.length === 0;
+  $('#buildStatus').textContent = current.custom ? t('fromScratch') : t(E.encode(nodes,preset) === E.encode(nodes,order) ? 'preset' : 'custom'); $('#resetAll').disabled = order.length === 0;
   $$('[data-tree-points]').forEach(el => { el.textContent = totals[Number(el.dataset.treePoints)]; }); $$('[data-reset-tree]').forEach(el => { el.disabled = totals[Number(el.dataset.resetTree)] === 0; });
   $$('[data-node]').forEach(el => {
     const n = nodes.find(n => n.id === el.dataset.node), rank = allocation[n.id] || 0, can = E.canAdd(nodes,allocation,n.id);
@@ -170,7 +175,7 @@ function positionTooltip() {
 function planHTML() {
   const nodes = nodesFor(current.classId), totals = E.totals(nodes,E.ranks(order)), counts = {};
   const steps = order.map((id,index) => { const node = nodes.find(n => n.id === id); counts[id] = (counts[id] || 0)+1; return {...node,level:index+10,rank:counts[id]}; });
-  return `<div class="plan-layout"><aside class="build-summary"><div class="eyebrow gold">${t('spent')}</div><div class="point-total">${totals.join('/')}</div><div class="point-label">${order.length} / 51 ${t('points')}</div><p>${order.length ? `${t('completeAt')} ${order.length+9}` : t('emptyBuild')}</p><p class="summary-note">${t('basePoint')}</p></aside><section><div class="route-title"><h3>${t('pathTitle')}</h3><button id="expandAll">${t('expand')}</button></div><p class="route-intro">${t('pathHelp')} ${current.mode !== 'Leveling' ? t('pathPve') : ''}</p>${!steps.length ? `<p class="notice">${t('routeEmpty')}</p>` : ''}${[[10,19],[20,29],[30,39],[40,49],[50,60]].map(([start,end],i) => {
+  return `<div class="plan-layout"><aside class="build-summary"><div class="eyebrow gold">${t('spent')}</div><div class="point-total">${totals.join('/')}</div><div class="point-label">${order.length} / 51 ${t('points')}</div><p>${order.length ? `${t('completeAt')} ${order.length+9}` : t('emptyBuild')}</p><p class="summary-note">${t('basePoint')}</p></aside><section><div class="route-title"><h3>${t('pathTitle')}</h3><button id="expandAll">${t('expand')}</button></div><p class="route-intro">${t('pathHelp')} ${!current.custom && current.mode !== 'Leveling' ? t('pathPve') : ''}</p>${!steps.length ? `<p class="notice">${t('routeEmpty')}</p>` : ''}${[[10,19],[20,29],[30,39],[40,49],[50,60]].map(([start,end],i) => {
     const group = steps.filter(s => s.level >= start && s.level <= end); if (!group.length) return '';
     return `<details class="level-group" ${i === 0 ? 'open' : ''}><summary><span class="level-badge">${start}–${Math.min(end,steps.length+9)}</span><b>${t('levels')}</b><span class="group-hint">${esc(talentName(group.find(n => n.max === 1) || group[0]))}</span><span class="chevron">›</span></summary>${group.map(n => `<div class="step"><span class="step-level">${n.level} ${t('level')}</span><img src="${n.icon}" alt="" loading="lazy"><div><div class="step-name">${esc(talentName(n))}</div><div class="step-tree">${treeName(n.treeName)}</div></div><span class="rank">${n.rank}/${n.max} <small>+1</small></span></div>`).join('')}</details>`;
   }).join('')}${sourceNote()}</section></div>`;
