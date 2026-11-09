@@ -1,13 +1,32 @@
 'use strict';
 let personalStore, personalRecords = [], activeSavedId = null, personalReadFailed = false, featureReturnFocus, shareName = '';
+function classChoicesHTML() {
+  return `<div class="creator-class-grid">${Object.keys(CLASSES).map(id => `<button class="creator-class" data-new-class="${id}" style="--class-accent:${CLASSES[id][2]}" aria-label="${esc(t('newClassBuild',{name:className(id)}))}"><img src="${classIcon(id)}" alt=""><span><strong>${className(id)}</strong><small>${TALENTS.classes[id].trees.map(tree => treeName(tree.name)).join(' · ')}</small></span><b aria-hidden="true">↗</b></button>`).join('')}</div>`;
+}
+function bindClassChoices(container) {
+  container.querySelectorAll('[data-new-class]').forEach(button => { button.onclick = () => {
+    const picker = $('#classPicker'), origin = picker.open ? featureReturnFocus : document.activeElement;
+    if (picker.open) picker.close();
+    openBuild(`custom-${button.dataset.newClass}`,'',false,null,t('newClassBuild',{name:className(button.dataset.newClass)}));
+    returnFocus = origin;
+  }; });
+}
+function showClassPicker() {
+  featureReturnFocus = document.activeElement;
+  const picker = $('#classPicker');
+  picker.innerHTML = `<div class="personal-dialog-head"><div><div class="eyebrow gold">${t('blankPoints')}</div><h2 id="classPickerTitle">${t('classPickerTitle')}</h2></div><button id="closeClassPicker" class="close" aria-label="${t('close')}">×</button></div><p class="creator-intro">${t('startFirstHelp')}</p>${classChoicesHTML()}<p class="creator-footnote">${t('linkWorkflow')}</p>`;
+  $('#closeClassPicker').onclick = () => picker.close(); bindClassChoices(picker); picker.showModal();
+}
 function buildLink(base, points, name = '') {
   const params = new URLSearchParams({build:base.id,v:'1',o:E.encode(nodesFor(base.classId),points)});
   if (name.trim()) params.set('n',name.trim().slice(0,60));
   return new URL(`${location.pathname}${location.search}#${params}`,location.href).href;
 }
 function initBuildFeatures() {
-  try { personalStore = SavedBuilds.create(localStorage,DATA.builds,nodesFor,E); refreshPersonal(); }
+  try { personalStore = SavedBuilds.create(localStorage,ALL_BASES,nodesFor,E); refreshPersonal(); }
   catch { personalReadFailed = true; }
+  $('#createBuild').onclick = $('#heroCreateBuild').onclick = showClassPicker;
+  $('#classPicker').addEventListener('close',() => { if (!$('#buildDialog').open) featureReturnFocus?.isConnected && featureReturnFocus.focus(); });
   $('#myBuilds').onclick = () => { state.mine = true; state.favorites = false; resetFilters(); $('#catalog').scrollIntoView({behavior:'smooth'}); };
   $('#saveDialog').addEventListener('close',() => { featureReturnFocus?.isConnected && featureReturnFocus.focus(); });
   window.addEventListener('storage',event => { if (event.key === SavedBuilds.KEY) { refreshPersonal(); render(); } });
@@ -20,7 +39,7 @@ function personalError(error) { return t(error.message === 'limit' ? 'personalLi
 function currentSaved() { return personalRecords.find(r => r.id === activeSavedId); }
 function showSaveBuild(record = null, copy = false) {
   hideTooltip(); featureReturnFocus = document.activeElement;
-  const existing = record || currentSaved(), base = record ? DATA.builds.find(b => b.id === record.baseId) : current;
+  const existing = record || currentSaved(), base = record ? findBuild(record.baseId) : current;
   const capturedOrder = record ? [...record.order] : [...order];
   const dialog = $('#saveDialog');
   dialog.innerHTML = `<form id="saveBuildForm"><div class="personal-dialog-head"><h2 id="saveBuildTitle">${t('buildLinkTitle')}</h2><button type="button" id="cancelSave" class="close" aria-label="${t('close')}">×</button></div><p>${t('portableLinkHelp')}</p><label for="buildName">${t('buildName')}</label><input id="buildName" maxlength="60" required autocomplete="off" value="${esc(existing?.name || shareName || specName(base))}"><label class="link-label" for="generatedBuildLink">${t('linkLabel')}</label><input id="generatedBuildLink" readonly type="url"><button class="button copy-build-link" id="copyBuildLink" type="button">${t('copyBuildLink')}</button><p id="saveError" role="status"></p><div class="personal-dialog-actions"><button class="button secondary" type="submit">${t(existing && !copy ? 'updateBuild' : 'keepLink')}</button>${existing && !copy ? `<button class="button secondary" id="saveCopy" type="button">${t('saveCopy')}</button>` : ''}</div><small class="local-link-note">${t('localOnly')}</small></form>`;
@@ -49,19 +68,22 @@ function renderPersonalCatalog() {
   refreshPersonal();
   const q = state.query.trim().toLocaleLowerCase();
   const records = personalRecords.filter(r => {
-    const b = DATA.builds.find(b => b.id === r.baseId), nodes = nodesFor(b.classId), selected = new Set(r.order);
+    const b = findBuild(r.baseId), nodes = nodesFor(b.classId), selected = new Set(r.order);
     return (state.classId === 'all' || b.classId === state.classId) && (state.mode === 'all' || b.mode === state.mode) && (state.role === 'all' || b.role === state.role) && (!q || [r.name,...CLASSES[b.classId],b.spec,treeName(b.spec),...nodes.filter(n => selected.has(n.id)).flatMap(n => [n.name,n.nameRu])].join(' ').toLocaleLowerCase().includes(q));
   });
   $('#catalogTitle').textContent = `${t('myBuilds')} · ${records.length}`;
-  $('#resultLabel').textContent = t('localOnly');
-  $('#builds').innerHTML = `<div class="personal-tools"><button class="button secondary" id="exportBuilds" ${!personalRecords.length || personalReadFailed ? 'disabled' : ''}>${t('exportBuilds')}</button><label class="button secondary file-button">${t('importBuilds')}<input id="importBuilds" type="file" accept="application/json,.json"></label><span id="personalMessage" role="status">${personalReadFailed ? t('personalFailure') : ''}</span></div>` + (records.length ? records.map(r => {
-    const b = DATA.builds.find(b => b.id === r.baseId), split = E.totals(nodesFor(b.classId),E.ranks(r.order)).join('/');
-    return `<article class="build-card personal-card" style="--accent:${CLASSES[b.classId][2]}"><a class="card-open" data-personal="${r.id}" href="${esc(buildLink(b,r.order,r.name))}"><div class="card-top"><img class="class-icon" src="${classIcon(b.classId)}" alt=""><div><div class="card-class">${className(b.classId)}</div><div class="card-role">${specName(b)} · ${t(b.mode)}</div></div></div><h3>${esc(r.name)}</h3><div class="card-bottom"><span>${r.order.length}/51 ${t('points')}</span><span class="allocation">${split}</span></div></a><div class="personal-card-actions"><button data-rename="${r.id}">${t('linkAndName')}</button><button data-copy="${r.id}">${t('duplicate')}</button><button data-delete="${r.id}">${t('deleteBuild')}</button></div></article>`;
-  }).join('') : `<div class="empty"><h3>${t('noPersonal')}</h3><p>${t('noPersonalHelp')}</p><button id="choosePreset">${t('allBuilds')}</button></div>`);
-  $$('[data-personal]').forEach(el => { el.onclick = event => { if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); const r = personalRecords.find(r => r.id === el.dataset.personal); openBuild(r.baseId,E.encode(nodesFor(DATA.builds.find(b => b.id === r.baseId).classId),r.order),false,r.id,r.name); }; });
+  $('#catalogOverline').textContent = t('yourWorkshop');
+  $('#resultLabel').textContent = t('personalIntro');
+  $('#builds').innerHTML = `<div class="personal-tools"><span class="personal-storage-note">${t('personalStorage')}</span><details class="backup-menu"><summary>${t('transferBuilds')} <span aria-hidden="true">⌄</span></summary><div class="backup-panel"><button class="button secondary" id="exportBuilds" ${!personalRecords.length || personalReadFailed ? 'disabled' : ''}>${t('exportBuilds')}</button><label class="button secondary file-button">${t('importBuilds')}<input id="importBuilds" type="file" accept="application/json,.json"></label></div></details><span id="personalMessage" role="status">${personalReadFailed ? t('personalFailure') : ''}</span></div>` + (records.length ? records.map(r => {
+    const b = findBuild(r.baseId), split = E.totals(nodesFor(b.classId),E.ranks(r.order)).join('/');
+    return `<article class="build-card personal-card" style="--accent:${CLASSES[b.classId][2]}"><a class="card-open" data-personal="${r.id}" href="${esc(buildLink(b,r.order,r.name))}"><div class="card-top"><img class="class-icon" src="${classIcon(b.classId)}" alt=""><div><div class="card-class">${className(b.classId)}</div><div class="card-role">${b.custom ? t("fromScratch") : `${specName(b)} · ${t(b.mode)}`}</div></div></div><h3>${esc(r.name)}</h3><div class="card-bottom"><span>${r.order.length}/51 ${t('points')}</span><span class="allocation">${split}</span></div></a><div class="personal-card-actions"><button data-rename="${r.id}">${t('linkAndName')}</button><button data-copy="${r.id}">${t('duplicate')}</button><button data-delete="${r.id}">${t('deleteBuild')}</button></div></article>`;
+  }).join('') : personalRecords.length ? `<div class="empty"><h3>${t('empty')}</h3><p>${t('emptyHelp')}</p><button id="clearPersonalFilters">${t('resetFilters')}</button></div>` : `<section class="create-empty"><div class="create-empty-heading"><span class="create-emblem" aria-hidden="true">✧</span><div><h3>${t('startFirstBuild')}</h3><p>${t('startFirstHelp')}</p></div></div>${classChoicesHTML()}<div class="create-empty-footer"><span>${t('linkWorkflow')}</span><button id="choosePreset">${t('orChoosePreset')} ↗</button></div></section>`);
+  $$('[data-personal]').forEach(el => { el.onclick = event => { if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); const r = personalRecords.find(r => r.id === el.dataset.personal); openBuild(r.baseId,E.encode(nodesFor(findBuild(r.baseId).classId),r.order),false,r.id,r.name); }; });
   $$('[data-rename]').forEach(el => { el.onclick = () => showSaveBuild(personalRecords.find(r => r.id === el.dataset.rename)); });
   $$('[data-copy]').forEach(el => { el.onclick = () => showSaveBuild(personalRecords.find(r => r.id === el.dataset.copy),true); });
   $$('[data-delete]').forEach(el => { el.onclick = () => deletePersonal(el.dataset.delete); });
+  bindClassChoices($('#builds'));
+  if ($('#clearPersonalFilters')) $('#clearPersonalFilters').onclick = resetFilters;
   if ($('#choosePreset')) $('#choosePreset').onclick = () => { state.mine = false; resetFilters(); };
   $('#exportBuilds').onclick = () => {
     try { const url = URL.createObjectURL(new Blob([personalStore.exportFile()],{type:'application/json'})); const a = document.createElement('a'); a.href = url; a.download = 'forever-atlas-builds.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url),1000); }

@@ -14,6 +14,9 @@ Static WoW Forever build library with a bilingual, interactive talent calculator
 
 ## Personal builds, links and guides
 
+- Create build opens a class picker and an empty calculator for any of the nine classes. My builds also offers direct class cards when empty. Custom bases use stable `custom-<class>` identifiers, independent of presets; names, talent order, links and backups work the same way. Preset guides and restore controls appear only for presets.
+- My builds uses a compact workspace without the decorative hero or preset-only filters. Backup tools are grouped in a menu; creation remains visible with or without saved entries.
+
 - Save opens a portable link editor. The URL fragment contains the preset/class reference, version, full talent order and optional name (`n`). Copying or bookmarking this link is sufficient to open the same build on another device, without an account, local storage or an imported file. Older unnamed links still work.
 - My builds is an optional local list of these build links. Name, update, duplicate and delete entries; export/import a versioned JSON backup. Normal clicks reopen an entry; its actual hyperlink also supports opening in another tab. Up to 100 records and 1 MB per import. Import validates the entire file before writing, preserves existing builds, skips identical entries and assigns fresh IDs. Storage failures are reported; sharing a link remains available.
 - Hover/focus/tap highlights a talent's prerequisite chain and dependent talents. Missing ranks are dashed pink, prerequisites gold, dependents purple. Tooltips show the exact points missing from earlier rows and prerequisite ranks. Unlearned icons stay dark.
